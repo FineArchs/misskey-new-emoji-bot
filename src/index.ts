@@ -1,7 +1,7 @@
 export interface Env {
   ORIGIN: string;
   TOKEN: string;
-	CHANNEL_ID: string;
+  CHANNEL_ID: string;
   MISSKEY_EMOJIS: KVNamespace;
 }
 
@@ -62,23 +62,23 @@ const newEmojiNote = async (
     return new Response("no new emoji");
   } else {
     let noteText = `新しい絵文字:${emojis[0].name}:（\`${emojis[0].name}\`）が追加されました。
-`;
+    `;
 
     if (emojis[0].category !== "" && emojis[0].category !== null) {
       noteText += `この絵文字は\`${emojis[0].category}\`に分類されています。
-`;
+      `;
     }
 
     if (emojis[0].aliases[0] !== "" && emojis[0].aliases[0] !== null) {
       noteText += `また、この絵文字は\`${emojis[0].aliases.join(
         ", "
       )}\`でも出す事が出来ます。
-`;
+      `;
     }
     noteText += `$[x3 :${emojis[0].name}:]
-`;
+    `;
     if (emojis[0].license !== "" && emojis[0].license !== null) {
-			const replacedMention = emojis[0].license.replaceAll("@", "@ ")
+      const replacedMention = emojis[0].license.replaceAll("@", "@ ")
       noteText += `ライセンス： ${replacedMention}`;
     }
 
@@ -90,7 +90,8 @@ const newEmojiNote = async (
       },
       body: JSON.stringify({
         i: env.TOKEN,
-				channelId: env.CHANNEL_ID,
+        channelId: env.CHANNEL_ID,
+        visibility: env.CHANNEL_ID ?  undefined : "followers",
         text: noteText,
       }),
     });

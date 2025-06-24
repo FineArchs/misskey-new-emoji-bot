@@ -1,14 +1,31 @@
+# 初回起動時にこのファイルをコピーして編集し、"wrangler.toml"として保存する
+
 name = "misskey-new-emoji-bot"
 main = "src/index.ts"
 compatibility_date = "2023-02-07"
 
 
 [vars]
-ORIGIN = "your instance url"
-TOKEN = "api token"
-CHANNEL_ID = "post channel id"
+# misskeyサーバーのURL
+# 頭の"https://"が必要
+# 末尾に"/"はつけないこと
+ORIGIN = "your server url"
 
+# 投稿用アカウントのトークン（要モデレーター権限）
+# 必要権限は'read:admin:emoji', 'write:notes'
+TOKEN = "api token"
+
+# 投稿先チャンネルのID
+# 未定義時は非公開投稿
+# CHANNEL_ID = "post channel id"
+
+# 絵文字データ保存領域
+# 作成方法は https://developers.cloudflare.com/kv/get-started/ を参照
+# preview_idはデバッグ用　デバッグ環境と本番環境を兼ねる場合に設定する
 [[kv_namespaces]]
 binding = "MISSKEY_EMOJIS"
-preview_id = "your kv preview id"
+# preview_id = "your kv preview id"
 id = "your kv id"
+
+[observability.logs]
+enabled = true
