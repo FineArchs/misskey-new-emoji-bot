@@ -171,3 +171,4 @@ dist
 # wrangler project
 
 .dev.vars
+worker-configuration.d.ts
