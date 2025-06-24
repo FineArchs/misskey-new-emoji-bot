@@ -61,28 +61,27 @@ const newEmojiNote = async (
     console.log("no new emoji");
     return new Response("no new emoji");
   } else {
-    let noteText = `新しい絵文字:${emojis[0].name}:（\`${emojis[0].name}\`）が追加されました。
-    `;
+    const emoji = emojis[0]!;
+    const nonEmpty = (s?: string | null) => s !== "" && s != null;
 
-    if (emojis[0].category !== "" && emojis[0].category !== null) {
-      noteText += `この絵文字は\`${emojis[0].category}\`に分類されています。
-      `;
+    const noteTexts = [`新しい絵文字:${emoji.name}:（\`${emoji.name}\`）が追加されました。`];
+
+    if (nonEmpty(emoji.category)) {
+      noteTexts.push(`この絵文字は\`${emoji.category}\`に分類されています。`);
     }
 
-    if (emojis[0].aliases[0] !== "" && emojis[0].aliases[0] !== null) {
-      noteText += `また、この絵文字は\`${emojis[0].aliases.join(
-        ", "
-      )}\`でも出す事が出来ます。
-      `;
-    }
-    noteText += `$[x3 :${emojis[0].name}:]
-    `;
-    if (emojis[0].license !== "" && emojis[0].license !== null) {
-      const replacedMention = emojis[0].license.replaceAll("@", "@ ")
-      noteText += `ライセンス： ${replacedMention}`;
+    if (nonEmpty(emoji.aliases[0])) {
+      noteTexts.push(`また、この絵文字は\`${emoji.aliases.join(", ")}\`でも出す事が出来ます。`);
     }
 
-    console.log(emojis[0].name);
+    noteTexts.push(`$[x3 :${emoji.name}:]`);
+
+    if (nonEmpty(emoji.license)) {
+      const replacedMention = emoji.license.replaceAll("@", "@ ")
+      noteTexts.push(`ライセンス： ${replacedMention}`);
+    }
+
+    console.log(emoji.name);
     await fetch(`${env.ORIGIN}/api/notes/create`, {
       method: "POST",
       headers: {
@@ -92,11 +91,11 @@ const newEmojiNote = async (
         i: env.TOKEN,
         channelId: env.CHANNEL_ID,
         visibility: env.CHANNEL_ID ?  undefined : "followers",
-        text: noteText,
+        text: noteTexts.join('\n'),
       }),
     });
 
-    await env.MISSKEY_EMOJIS.put("sinceID", emojis[0].id);
+    await env.MISSKEY_EMOJIS.put("sinceID", emoji.id);
 
     return new Response("ok");
   }
