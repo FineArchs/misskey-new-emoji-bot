@@ -1,3 +1,5 @@
+import { api as MisskeyAPI } from "misskey-js";
+
 export interface Env {
   ORIGIN: string;
   TOKEN: string;
@@ -14,58 +16,33 @@ export type Emojis = {
   license: string;
 }[];
 
-const forwardResponse = (resp: Response) => {
-  return new Response(resp.body, {
-    status: resp.status,
-    statusText: resp.statusText + ' (forwarded)',
-    headers: {
-      'Content-Type': 'application/json; charset=utf-8',
-    },
-  });
-}
-
 const ping = async (
   request: Request,
   env: Env,
-  ctx: ExecutionContext
+  ctx: ExecutionContext,
+  api: MisskeyAPI.APIClient,
 ): Promise<Response> => {
-  const miResponse = await fetch(`${env.ORIGIN}/api/notes/create`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({
-      i: env.TOKEN,
-      visibility: "followers",
-      localOnly: true,
-      text: "投稿テストです。",
-    }),
+  const miResponse = await api.request('notes/create', {
+    visibility: "followers",
+    localOnly: true,
+    text: "投稿テストです。",
   });
-  return forwardResponse(miResponse);
+  return new Response(JSON.stringify(miResponse));
 };
 
 const newEmojiNote = async (
   event: ScheduledController | null,
   env: Env,
-  ctx: ExecutionContext
+  ctx: ExecutionContext,
+  api: MisskeyAPI.APIClient,
 ) => {
   const sinceId = (await env.MISSKEY_EMOJIS.get("sinceID")) as string;
-  if (!sinceId) return new Response("Error: sinceId is not set", {
-    status: 400
-  });
+  if (!sinceId) return new Response("Error: sinceId is not set");
 
-  const miResponse = await fetch(`${env.ORIGIN}/api/admin/emoji/list`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({
-      i: env.TOKEN,
+  const emojis = await api.request('admin/emoji/list', {
       sinceId: sinceId,
       limit: 1,
-    }),
-  });
-  const emojis = (await miResponse.json()) as Emojis;
+  }) as Emojis;
   console.log(JSON.stringify(emojis));
 
   if (emojis.length <= 0) {
@@ -93,22 +70,15 @@ const newEmojiNote = async (
     }
 
     console.log(emoji.name);
-    const miResponse2 = await fetch(`${env.ORIGIN}/api/notes/create`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        i: env.TOKEN,
-        channelId: env.CHANNEL_ID,
-        visibility: env.CHANNEL_ID ?  undefined : "specified",
-        text: noteTexts.join('\n'),
-      }),
+    await api.request('notes/create', {
+      channelId: env.CHANNEL_ID,
+      visibility: env.CHANNEL_ID ?  undefined : "followers",
+      text: noteTexts.join('\n'),
     });
 
     await env.MISSKEY_EMOJIS.put("sinceID", emoji.id);
 
-    return forwardResponse(miResponse2);
+    return new Response("ok");
   }
 };
 
@@ -145,15 +115,24 @@ export default {
     ctx: ExecutionContext
   ): Promise<Response> {
     const url = request.url;
-    if (url.includes("ping")) return await ping(request, env, ctx);
+    const api = new MisskeyAPI.APIClient({
+      origin: env.ORIGIN,
+      credential: env.TOKEN,
+    });
+
+    if (url.includes("ping")) return await ping(request, env, ctx, api);
     // if (url.includes('syncallemojis')) return await syncallemojis(request, env, ctx)
-    if (url.includes("newemojicheck")) return await newEmojiNote(null, env, ctx);
+    if (url.includes("newemojicheck")) return await newEmojiNote(null, env, ctx, api);
     if (url.includes("setSinceId")) return await setSinceId(request, env, ctx);
     if (url.includes("getSinceId")) return await getSinceId(request, env, ctx);
 
     return new Response("not found");
   },
   async scheduled(event: ScheduledController, env: Env, ctx: ExecutionContext) {
-    ctx.waitUntil(newEmojiNote(event, env, ctx));
+    const api = new MisskeyAPI.APIClient({
+      origin: env.ORIGIN,
+      credential: env.TOKEN,
+    });
+    ctx.waitUntil(newEmojiNote(event, env, ctx, api));
   },
 };
