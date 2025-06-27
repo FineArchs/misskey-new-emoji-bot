@@ -1,7 +1,7 @@
 export interface Env {
   ORIGIN: string;
   TOKEN: string;
-  CHANNEL_ID: string;
+  CHANNEL_ID?: string;
   MISSKEY_EMOJIS: KVNamespace;
 }
 
@@ -13,6 +13,16 @@ export type Emojis = {
   category: string;
   license: string;
 }[];
+
+const forwardResponse = (resp: Response) => {
+  return new Response(resp.body, {
+    status: resp.status,
+    statusText: resp.statusText + ' (forwarded)',
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+    },
+  });
+}
 
 const ping = async (
   request: Request,
@@ -31,7 +41,7 @@ const ping = async (
       text: "投稿テストです。",
     }),
   });
-  return new Response("ok");
+  return forwardResponse(miResponse);
 };
 
 const newEmojiNote = async (
@@ -40,8 +50,9 @@ const newEmojiNote = async (
   ctx: ExecutionContext
 ) => {
   const sinceId = (await env.MISSKEY_EMOJIS.get("sinceID")) as string;
-
-  if (!sinceId) return new Response("no sinceId");
+  if (!sinceId) return new Response("Error: sinceId is not set", {
+    status: 400
+  });
 
   const miResponse = await fetch(`${env.ORIGIN}/api/admin/emoji/list`, {
     method: "POST",
@@ -82,7 +93,7 @@ const newEmojiNote = async (
     }
 
     console.log(emoji.name);
-    await fetch(`${env.ORIGIN}/api/notes/create`, {
+    const miResponse2 = await fetch(`${env.ORIGIN}/api/notes/create`, {
       method: "POST",
       headers: {
         "content-type": "application/json",
@@ -90,14 +101,14 @@ const newEmojiNote = async (
       body: JSON.stringify({
         i: env.TOKEN,
         channelId: env.CHANNEL_ID,
-        visibility: env.CHANNEL_ID ?  undefined : "followers",
+        visibility: env.CHANNEL_ID ?  undefined : "specified",
         text: noteTexts.join('\n'),
       }),
     });
 
     await env.MISSKEY_EMOJIS.put("sinceID", emoji.id);
 
-    return new Response("ok");
+    return forwardResponse(miResponse2);
   }
 };
 
@@ -136,10 +147,7 @@ export default {
     const url = request.url;
     if (url.includes("ping")) return await ping(request, env, ctx);
     // if (url.includes('syncallemojis')) return await syncallemojis(request, env, ctx)
-    if (url.includes("newemojicheck")) {
-      await newEmojiNote(null, env, ctx);
-      return new Response("ok");
-    }
+    if (url.includes("newemojicheck")) return await newEmojiNote(null, env, ctx);
     if (url.includes("setSinceId")) return await setSinceId(request, env, ctx);
     if (url.includes("getSinceId")) return await getSinceId(request, env, ctx);
 
